@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pl">
+	<head>
+		<title>Gra przygodowa</title>
+		<meta charset="UTF-8" />
+		<script src="jq.js" type="text/javascript" charset="utf-8"></script>
+		<link href='https://fonts.googleapis.com/css?family=Fanwood+Text' rel='stylesheet' type='text/css'>
+		<style type="text/css" media="screen">
+			body{
+				background: black;
+			}
+			
+			table#controls, div#board {
+				background: black;
+				float: left;
+			}
+			
+			div#board {
+				min-height: 500px;
+				width: 500px;
+				height: 500px;
+				margin: 10px;
+				margin-top: 0;
+				padding: 0px;
+				border: 2px solid red;
+				overflow: hidden;
+			}
+			
+			table#controls img {
+				cursor: pointer;
+			}
+			
+			p.gameInfo {
+				padding:0px 0px 15px 5px;
+				margin: 0px 5px 0px 5px;
+				font-size: 150%;
+				font-family: 'Fanwood Text', serif;
+			}
+			
+			h1 {
+				font-family: 'Fanwood Text', serif;
+				color: white;
+			}
+		</style>
+	</head>
+	<body>
+	<h1>Gra przygodowa</h1>
+	<div id="board">
+	</div>
+	<table border="0" cellspacing="0" cellpadding="0" id="controls">
+		<tr><td>&nbsp;</td><td><img src="pn.png" /></td><td>&nbsp;</td></tr>
+		<tr><td><img src="zch.png" /></td><td>&nbsp;</td><td><img src="wsch.png" /></td></tr>
+		<tr><td>&nbsp;</td><td><img src="pd.png" /></td><td>&nbsp;</td></tr>
+	</table>
+	<script type="text/javascript">
+		jQuery("document").ready(function(){
+			var rooms = {
+				start: {
+					desc: "Jesteś na korytarzu. Stare deski skrzypią, gdy niepewnie stawiasz kroki. Na końcu korytarza dostrzegasz uchylone drzwi",
+					pn: "kuchnia",
+					pd: null,
+					wsch: null,
+					zch: null,
+				},
+				kuchnia: {
+					desc: "Jesteś w kuchni. Panuje tu półmrok, na środku pomieszczenia stoi stary drewniany stół, pokryty kurzem i pajęczynami. Na stole leżą naczynia i sztućce, jakby porzucone w trakcie posiłku. Z kuchni są dwa wyjścia, jedno na południe i jedno wschód.",
+					pn: null,
+					pd: "start",
+					wsch: "sypialnia",
+					zch: null,
+				},
+				sypialnia: {
+					desc: "Jesteś w sypialni. Przez okno wpadają czerwone promienie zachodzącego słońca, przy sciane stoi wiekowe łóżko z baldachimem, zasłonięte pożółkłą firanką. Przez moment wydaje Ci sie że widzisz ruch za zwiewnym materiałem, ale to chyba tylko twoja wyobraźnia. Półka z książkami stojąca przy południowej ścianie wydaje Ci sie podejrzana. Po dłuższych oględzinach okazuje się, że skrywa tajne przejscie. Możesz też iść na zachód, do kuchni.",
+					pn: null,
+					pd: "skrytka",
+					wsch: null,
+					zch: "kuchnia",
+				},
+				skrytka: {
+					desc: "Znalazłeś tajną skrytkę! trochę tu ciasno. Na podłodze widzisz wydrapane dziwne znaki, oprócz tego pomieszczenie jest puste. Jest tu sekretne przejście prowadzące spowrotem na korytarz. Da sie je otworzyć tylko z tej strony.",
+					pd: null,
+					wsch: null,
+					zch: "start",
+					pn: "sypialnia",
+				}
+			};
+			
+			function Player(currRoom) {
+				this.currRoom = currRoom;
+			}
+			
+			function View(board) {
+				this.board = board;
+				this.printUpdate = function(text, type){
+					if(type!="warning"){
+						board.children().css({"color":"grey"});
+					}
+					var para = jQuery("<p class='gameInfo'>");
+					switch(type){
+						case "normal":
+							para.css({"color":"white"});
+							break;
+						case "warning":
+							para.css({"color":"red"});
+							break;
+					}
+					para.css({"display":"none"});
+					para.text(text);
+					this.board.prepend(para);
+					para.toggle(400);
+				};
+			}
+			
+			function Game(rooms, board, controls) {
+				var that = this;
+				this.board = board;
+				this.rooms = rooms;
+				this.controls = controls;
+				this.player = new Player("start");
+				this.view = new View(this.board);
+				this.init = function() {
+					this.view.printUpdate(this.rooms[this.player.currRoom].desc, "normal");
+					this.activateButtons();
+				};
+				this.activateButtons = function(){
+					var direction;
+					var newDirection;
+					this.controls.on("mouseenter", function(){
+						direction = jQuery(this).attr("src");
+						newDirection = direction.split(".")[0];
+						if(that.rooms[that.player.currRoom][newDirection] != null){
+							jQuery(this).attr("src", newDirection+"T.png");
+						} else {
+							jQuery(this).attr("src", newDirection+"F.png");
+						}
+					});
+					this.controls.on("mouseout", function(){
+						jQuery(this).attr("src", direction);
+					});
+					this.controls.on("click", function(){
+						that.changeRoom(that.rooms[that.player.currRoom][newDirection]);
+						jQuery(this).trigger("mouseout");
+						jQuery(this).trigger("mouseenter");
+					});
+				};
+				this.changeRoom = function(newRoom){
+					if(newRoom != null){
+						this.player.currRoom = newRoom;
+						this.view.printUpdate(that.rooms[that.player.currRoom].desc, "normal");
+					} else {
+						this.view.printUpdate("Nie możesz iść w tym kierunku", "warning");
+					}
+				};
+			}
+			
+			var gra = new Game(rooms, jQuery("#board"), jQuery("#controls img"));
+			gra.init();
+			
+		});
+	</script>	
+	</body>
+</html>
