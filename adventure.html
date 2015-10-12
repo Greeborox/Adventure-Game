@@ -10,7 +10,7 @@
 				background: black;
 			}
 			
-			table#controls, div#board {
+			div#playerActions, div#board {
 				background: black;
 				float: left;
 			}
@@ -34,24 +34,69 @@
 				padding:0px 0px 15px 5px;
 				margin: 0px 5px 0px 5px;
 				font-size: 150%;
-				font-family: 'Fanwood Text', serif;
 			}
 			
-			h1 {
+			body {
 				font-family: 'Fanwood Text', serif;
 				color: white;
+				font-size: 115%;
 			}
+			
+			ul {
+				list-style: none;
+			}
+			
+			#playerActions p, #playerActions ul {
+				margin: 0;
+				padding: 0;
+			}
+			
+			#playerActions li {
+				margin: 3px;
+				margin-left: 15px;
+				cursor: pointer;
+			}
+			
+			#playerActions li:hover {
+				color: blue;
+			}
+			
+			#ekwipunek {
+				position: relative;
+			}
+			
+			#itemMenu li{
+				margin: 0px;
+				margin-left: 25px;
+				padding: 0px;
+				border: 1px solid red;
+			}
+			
+			#itemMenu li:hover{
+				background: gray;
+			}
+			
 		</style>
 	</head>
 	<body>
 	<h1>Gra przygodowa</h1>
 	<div id="board">
 	</div>
+	<div id="playerActions">
 	<table border="0" cellspacing="0" cellpadding="0" id="controls">
 		<tr><td>&nbsp;</td><td><img src="pn.png" /></td><td>&nbsp;</td></tr>
 		<tr><td><img src="zch.png" /></td><td>&nbsp;</td><td><img src="wsch.png" /></td></tr>
 		<tr><td>&nbsp;</td><td><img src="pd.png" /></td><td>&nbsp;</td></tr>
 	</table>
+	<p>Akcje:</p>
+	<ul id="akcje">
+		<li class="pickUp">podnieś</li>
+	</ul>
+	<p>Ekwipunek:</p>
+	<ul id="ekwipunek">
+		
+	</ul>
+	</div>
 	<script type="text/javascript">
 		jQuery("document").ready(function(){
 			var rooms = {
@@ -61,6 +106,7 @@
 					pd: null,
 					wsch: null,
 					zch: null,
+					items: [],
 				},
 				kuchnia: {
 					desc: "Jesteś w kuchni. Panuje tu półmrok, na środku pomieszczenia stoi stary drewniany stół, pokryty kurzem i pajęczynami. Na stole leżą naczynia i sztućce, jakby porzucone w trakcie posiłku. Z kuchni są dwa wyjścia, jedno na południe i jedno wschód.",
@@ -68,6 +114,7 @@
 					pd: "start",
 					wsch: "sypialnia",
 					zch: null,
+					items: ["nóż"],
 				},
 				sypialnia: {
 					desc: "Jesteś w sypialni. Przez okno wpadają czerwone promienie zachodzącego słońca, przy sciane stoi wiekowe łóżko z baldachimem, zasłonięte pożółkłą firanką. Przez moment wydaje Ci sie że widzisz ruch za zwiewnym materiałem, ale to chyba tylko twoja wyobraźnia. Półka z książkami stojąca przy południowej ścianie wydaje Ci sie podejrzana. Po dłuższych oględzinach okazuje się, że skrywa tajne przejscie. Możesz też iść na zachód, do kuchni.",
@@ -75,6 +122,7 @@
 					pd: "skrytka",
 					wsch: null,
 					zch: "kuchnia",
+					items: ["klucz", "lusterko", "amunicja"],
 				},
 				skrytka: {
 					desc: "Znalazłeś tajną skrytkę! trochę tu ciasno. Na podłodze widzisz wydrapane dziwne znaki, oprócz tego pomieszczenie jest puste. Jest tu sekretne przejście prowadzące spowrotem na korytarz. Da sie je otworzyć tylko z tej strony.",
@@ -82,11 +130,31 @@
 					wsch: null,
 					zch: "start",
 					pn: "sypialnia",
+					items: ["księga"],
 				}
 			};
 			
-			function Player(currRoom) {
+			function Player(currRoom, inventory) {
 				this.currRoom = currRoom;
+				this.inventory = inventory;
+				this.items = [];
+				this.pickUp = function(rooms){
+					if(rooms[this.currRoom].items.length != 0){
+						this.items.push(rooms[this.currRoom].items[0]);
+						inventory.append("<li class='item'>"+rooms[this.currRoom].items[0]+"</li>");
+						rooms[this.currRoom].items.shift();
+						return true;
+					} else {
+						return false;
+					}
+				};
+				this.dropItem = function(item, rooms){
+					console.log(this.items);
+					var index = this.items.indexOf(item);
+					this.items.splice(index,1);
+					rooms[this.currRoom].items.push(item);
+					console.log(this.items);
+				};
 			}
 			
 			function View(board) {
@@ -94,6 +162,7 @@
 				this.printUpdate = function(text, type){
 					if(type!="warning"){
 						board.children().css({"color":"grey"});
+						board.children().find(".itemSpan").css({"color":"grey"}).removeClass("itemSpan");
 					}
 					var para = jQuery("<p class='gameInfo'>");
 					switch(type){
@@ -109,18 +178,81 @@
 					this.board.prepend(para);
 					para.toggle(400);
 				};
+				this.printItems = function(items){
+					var itemSpan = jQuery("<span class='itemSpan'>");
+					var text = "";
+					itemSpan.css({"color":"blue"});
+					if(items.length == 1) {
+						text = " leży tu: "+items[0];
+					} else {
+						text = " leżą tu: ";
+						for(i=0;i<items.length;i++){
+							if(i != items.length-1) {
+								text += items[i] + ", ";
+							} else {
+								text += items[i];
+							}
+						}
+					}
+					itemSpan.text(text);
+					this.board.children().first().append(itemSpan);
+				};
 			}
 			
-			function Game(rooms, board, controls) {
+			function Game(rooms, board, playerInterface) {
 				var that = this;
 				this.board = board;
 				this.rooms = rooms;
-				this.controls = controls;
-				this.player = new Player("start");
+				this.playerInterface = playerInterface;
+				this.controls = playerInterface.find("#controls img");
+				this.player = new Player("start", playerInterface.find("#ekwipunek"));
 				this.view = new View(this.board);
 				this.init = function() {
 					this.view.printUpdate(this.rooms[this.player.currRoom].desc, "normal");
 					this.activateButtons();
+					this.activateActions();
+				};
+				this.showItemMenu = function(item){
+					this.playerInterface.find("#itemMenu").remove();
+					var html = "<ul id='itemMenu'><li>upuść</li><li>użyj</li><ul>";
+					var elem = this.playerInterface.find("#ekwipunek li:contains('"+item+"')");
+					elem.after(html);
+					this.playerInterface.find("#itemMenu").mouseleave(function(){
+						that.playerInterface.find("#itemMenu").remove();
+					});
+					this.playerInterface.find("#itemMenu li:nth-child(1)").on("click",function(){
+						that.player.dropItem(item, that.rooms);
+						elem.remove();
+						that.playerInterface.find("#itemMenu").remove();
+						var itemsHere = that.rooms[that.player.currRoom].items;
+						that.board.children().first().find(".itemSpan").remove();
+						if(!(itemsHere.length === 0)){
+								that.view.printItems(itemsHere);
+						};
+					});
+					this.playerInterface.find("#itemMenu li:nth-child(2)").on("click",function(){
+						console.log("używam: "+item);
+						that.playerInterface.find("#itemMenu").remove();
+					});
+				};
+				this.activateActions = function(){
+					this.playerInterface.find("#akcje li.pickUp").on("click", function(){
+						var result = that.player.pickUp(that.rooms);
+						if (result){
+							that.board.children().first().find(".itemSpan").remove();
+							var itemsHere = that.rooms[that.player.currRoom].items;
+							if(!(itemsHere.length === 0)){
+								that.view.printItems(itemsHere);
+							}
+							that.playerInterface.find("#ekwipunek li").off();
+							that.playerInterface.find("#ekwipunek li").on("click", function(){
+								var item = jQuery(this).text();
+								that.showItemMenu(item);
+							});
+						} else {
+							that.view.printUpdate("Nie ma tu nic do podniesienia", "warning");
+						}
+					});
 				};
 				this.activateButtons = function(){
 					var direction;
@@ -146,14 +278,18 @@
 				this.changeRoom = function(newRoom){
 					if(newRoom != null){
 						this.player.currRoom = newRoom;
-						this.view.printUpdate(that.rooms[that.player.currRoom].desc, "normal");
+						this.view.printUpdate(this.rooms[this.player.currRoom].desc, "normal");
+						var itemsHere = this.rooms[this.player.currRoom].items;
+						if(!(itemsHere.length === 0)){
+							this.view.printItems(itemsHere);
+						}
 					} else {
 						this.view.printUpdate("Nie możesz iść w tym kierunku", "warning");
 					}
 				};
 			}
 			
-			var gra = new Game(rooms, jQuery("#board"), jQuery("#controls img"));
+			var gra = new Game(rooms, jQuery("#board"), jQuery("#playerActions"));
 			gra.init();
 			
 		});
